@@ -76,7 +76,7 @@ function stop_monitor(){
 
 function get_field_name() {	# print report column header
 #    printf "${REPORT_COLUMN_FORMATS}" Type Date Time Input_data_size "Duration(s)" "Throughput(bytes/s)" Throughput/node
-    printf "${REPORT_COLUMN_FORMATS}" type date time input_data_size "duration(s)" "throughput(bytes/s)" throughput_per_node node_num processor_num "cpu_freq(GHz)" software version map_parallelism shuffle_parallelism executor_num cores_per_executor "memory_per_executor(g)" "memory_of_driver(g)" "memory_of_gpu(m)" "bandwidth(m)"
+    printf "${REPORT_COLUMN_FORMATS}" type date time input_data_size "duration(s)" "throughput(bytes/s)" throughput_per_node node_num processor_num "cpu_freq(GHz)" "free_memory(m)" software version node_vcores "node_memory(m)" map_parallelism shuffle_parallelism executor_num cores_per_executor "memory_per_executor(g)" "memory_of_driver(g)" "memory_of_gpu(m)" "bandwidth(m)"
 }
 
 function gen_report() {		# dump the result to report file
@@ -105,11 +105,36 @@ function gen_report() {		# dump the result to report file
         echo "${REPORT_TITLE}" > ${HIBENCH_REPORT}/${HIBENCH_REPORT_NAME}
     fi
 
-    node_num=3
+    node_num=${nodes}
     # processor="Intel(R) Xeon(R) Gold 5218 CPU @ 2.30GHz"
     # logical cpu
-    processor_num=64
-    cpu_freq=2.3
+    processor_num=$(cat /proc/cpuinfo  | grep processor | wc -l)
+    if [ -z "${processor_num}" ]; then
+        processor_num=64
+    fi
+    cpu_freq=$(cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c | grep -o "[0-9]*.[0-9]*GHz")
+    len_c=${#cpu_freq}
+    cpu_freq=${cpu_freq:0:len_c-3}
+    if [ -z "${cpu_freq}" ]; then
+        cpu_freq=2.3
+    fi
+
+    free_memory=$(head /proc/meminfo | grep MemFree | grep -Eo "[0-9]*")
+    free_memory=`expr ${free_memory} / 1000`
+    if [ -z "${free_memory}" ]; then
+        free_memory=100000
+    fi
+
+    # ${HADOOP_HOME}/etc/hadoop/yarn-site.xml
+    node_vcores=64
+    if [ -n "${HADOOP_HOME}" ]; then
+        node_vcores=$(cat ${HADOOP_HOME}/etc/hadoop/yarn-site.xml | grep -A 1 "yarn.nodemanager.resource.cpu-vcores" | grep "<value>" | grep -Eo "[0-9]*")
+    fi
+    node_memory=110592
+    if [ -n "${HADOOP_HOME}" ]; then
+        node_memory=$(cat ${HADOOP_HOME}/etc/hadoop/yarn-site.xml | grep -A 1 "yarn.nodemanager.resource.memory-mb" | grep "<value>" | grep -Eo "[0-9]*")
+    fi
+
     software="null"
     version="v0.0"
     # get the name of software(hadoop, spark, flink...)
@@ -123,12 +148,12 @@ function gen_report() {		# dump the result to report file
       software="Spark"
       version="v3.0.1"
     fi
-    executor_num=${YARN_NUM_EXECUTORS}
-    cores_per_executor=${YARN_EXECUTOR_CORES}
 
     map_parallelism=${NUM_MAPS}
     shuffle_parallelism=${NUM_REDS}
 
+    executor_num=${YARN_NUM_EXECUTORS}
+    cores_per_executor=${YARN_EXECUTOR_CORES}
     memory_per_executor=${SPARK_YARN_EXECUTOR_MEMORY}
     len1=${#memory_per_executor}
     # delete memory unit 'g'
@@ -139,10 +164,11 @@ function gen_report() {		# dump the result to report file
     # delete memory unit 'g'
     memory_of_driver=${memory_of_driver:0:len2-1}
 
+    # give a static value temporarily
     memory_of_gpu=48
     bandwidth=1000
 
-    REPORT_LINE=$(printf "${REPORT_COLUMN_FORMATS}" ${HIBENCH_CUR_WORKLOAD_NAME} $(date +%F) $(date +%T) $size $duration $tput $tput_node $node_num $processor_num $cpu_freq $software $version $map_parallelism $shuffle_parallelism $executor_num $cores_per_executor $memory_per_executor $memory_of_driver $memory_of_gpu $bandwidth)
+    REPORT_LINE=$(printf "${REPORT_COLUMN_FORMATS}" ${HIBENCH_CUR_WORKLOAD_NAME} $(date +%F) $(date +%T) $size $duration $tput $tput_node $node_num $processor_num $cpu_freq $free_memory $software $version $node_vcores $node_memory $map_parallelism $shuffle_parallelism $executor_num $cores_per_executor $memory_per_executor $memory_of_driver $memory_of_gpu $bandwidth)
     echo "${REPORT_LINE}" >> ${HIBENCH_REPORT}/${HIBENCH_REPORT_NAME}
     echo "# ${REPORT_TITLE}" >> ${HIBENCH_WORKLOAD_CONF}
     echo "# ${REPORT_LINE}" >> ${HIBENCH_WORKLOAD_CONF}
