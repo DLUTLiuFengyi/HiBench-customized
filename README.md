@@ -15,7 +15,7 @@
 
 HiBench is a big data benchmark suite that helps evaluate different big data frameworks in terms of speed, throughput and system resource utilizations. It contains a set of Hadoop, Spark and streaming workloads, including Sort, WordCount, TeraSort, Repartition, Sleep, SQL, PageRank, Nutch indexing, Bayes, Kmeans, NWeight and enhanced DFSIO, etc. It also contains several streaming workloads for Spark Streaming, Flink, Storm and Gearpump.
 
-HiBench是一个大数据benchmark工具，提供Hadoop、Spark、Flink、Storm、Gearpump对WordCount、Sort、Join、SVM、线性回归、随机森林、PageRank等多种workloads的支持。主要工作思路是：
+HiBench是一个Intel提供的大数据benchmark工具，提供Hadoop、Spark、Flink、Storm、Gearpump对WordCount、Sort、Join、SVM、线性回归、随机森林、PageRank等多种workloads的支持。主要工作思路是：
 
 1. 以Spark为例，每个workload用一个类实现
 2. 编译完项目后，使用bash脚本控制jar包的执行

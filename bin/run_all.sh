@@ -50,6 +50,9 @@ for benchmark in `cat $root_dir/conf/benchmarks.lst`; do
     if [ $benchmark == "micro/repartition" ] && [ $framework == "hadoop" ]; then
         continue
     fi
+    if [ $benchmark == "sql/aggregation" ] && [ $framework == "hadoop" ]; then
+        continue
+    fi
     if [ $benchmark == "websearch/nutchindexing" ] && [ $framework == "spark" ]; then
         continue
     fi

@@ -75,7 +75,8 @@ function stop_monitor(){
 }
 
 function get_field_name() {	# print report column header
-    printf "${REPORT_COLUMN_FORMATS}" Type Date Time Input_data_size "Duration(s)" "Throughput(bytes/s)" Throughput/node 
+#    printf "${REPORT_COLUMN_FORMATS}" Type Date Time Input_data_size "Duration(s)" "Throughput(bytes/s)" Throughput/node
+    printf "${REPORT_COLUMN_FORMATS}" type date time input_data_size "duration(s)" "throughput(bytes/s)" throughput_per_node node_num processor_num "cpu_freq(GHz)" software version map_parallelism shuffle_parallelism executor_num cores_per_executor "memory_per_executor(g)" "memory_of_driver(g)" "memory_of_gpu(m)" "bandwidth(m)"
 }
 
 function gen_report() {		# dump the result to report file
@@ -92,7 +93,9 @@ function gen_report() {		# dump the result to report file
     local tput=`echo "$size/$duration"|bc`
 #    local nodes=`cat ${SPARK_HOME}/conf/slaves 2>/dev/null | grep -v '^\s*$' | sed "/^#/ d" | wc -l`
     local nodes=`echo ${SLAVES} | wc -w`
-    nodes=${nodes:-1}
+#    nodes=${nodes:-1}
+    # use static num here (amax7, amax8, amax9)
+    nodes=3
     
     if [ $nodes -eq 0 ]; then nodes=1; fi
     local tput_node=`echo "$tput/$nodes"|bc`
@@ -102,7 +105,44 @@ function gen_report() {		# dump the result to report file
         echo "${REPORT_TITLE}" > ${HIBENCH_REPORT}/${HIBENCH_REPORT_NAME}
     fi
 
-    REPORT_LINE=$(printf "${REPORT_COLUMN_FORMATS}" ${HIBENCH_CUR_WORKLOAD_NAME} $(date +%F) $(date +%T) $size $duration $tput $tput_node)
+    node_num=3
+    # processor="Intel(R) Xeon(R) Gold 5218 CPU @ 2.30GHz"
+    # logical cpu
+    processor_num=64
+    cpu_freq=2.3
+    software="null"
+    version="v0.0"
+    # get the name of software(hadoop, spark, flink...)
+    if [[ ${HIBENCH_CUR_WORKLOAD_NAME} =~ "Hadoop" ]] ; then
+      software="Hadoop"
+      version="v2.7.0"
+    elif [[ ${HIBENCH_CUR_WORKLOAD_NAME} =~ "Spark" ]]; then
+      software="Spark"
+      version="v3.0.1"
+    else
+      software="Spark"
+      version="v3.0.1"
+    fi
+    executor_num=${YARN_NUM_EXECUTORS}
+    cores_per_executor=${YARN_EXECUTOR_CORES}
+
+    map_parallelism=${NUM_MAPS}
+    shuffle_parallelism=${NUM_REDS}
+
+    memory_per_executor=${SPARK_YARN_EXECUTOR_MEMORY}
+    len1=${#memory_per_executor}
+    # delete memory unit 'g'
+    memory_per_executor=${memory_per_executor:0:len1-1}
+
+    memory_of_driver=${SPARK_YARN_DRIVER_MEMORY}
+    len2=${#memory_of_driver}
+    # delete memory unit 'g'
+    memory_of_driver=${memory_of_driver:0:len2-1}
+
+    memory_of_gpu=48
+    bandwidth=1000
+
+    REPORT_LINE=$(printf "${REPORT_COLUMN_FORMATS}" ${HIBENCH_CUR_WORKLOAD_NAME} $(date +%F) $(date +%T) $size $duration $tput $tput_node $node_num $processor_num $cpu_freq $software $version $map_parallelism $shuffle_parallelism $executor_num $cores_per_executor $memory_per_executor $memory_of_driver $memory_of_gpu $bandwidth)
     echo "${REPORT_LINE}" >> ${HIBENCH_REPORT}/${HIBENCH_REPORT_NAME}
     echo "# ${REPORT_TITLE}" >> ${HIBENCH_WORKLOAD_CONF}
     echo "# ${REPORT_LINE}" >> ${HIBENCH_WORKLOAD_CONF}
